@@ -180,9 +180,16 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
 
 
     // Inside the BackgroundGeolocationPlugin or wherever you're calling this method
+    private boolean isLocationDialogShown = false; // Flag to check if location dialog is already shown
+
     private void showLocationExplanationDialog() {
         // Ensure this is executed on the main thread
         cordova.getActivity().runOnUiThread(() -> {
+            // Only show the dialog if it isn't already shown
+            if (isLocationDialogShown) {
+                return; // Skip if the dialog is already displayed
+            }
+
             String language = Locale.getDefault().getLanguage();
             boolean isHungarian = "hu".equals(language);
 
@@ -193,19 +200,34 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
             String positiveButton = isHungarian ? "Ugrás a beállításokhoz" : "Go to Settings";
             String negativeButton = isHungarian ? "Mégsem" : "Cancel";
 
+            // Set the flag before showing the dialog
+            isLocationDialogShown = true;
+
             new AlertDialog.Builder(cordova.getActivity())
                     .setTitle(title)
                     .setMessage(message)
-                    .setPositiveButton(positiveButton, (dialog, which) -> openAppSettings())
-                    .setNegativeButton(negativeButton, null)
+                    .setPositiveButton(positiveButton, (dialog, which) -> {
+                        openAppSettings();
+                        isLocationDialogShown = false; // Reset the flag after closing the dialog
+                    })
+                    .setNegativeButton(negativeButton, (dialog, which) -> {
+                        isLocationDialogShown = false; // Reset the flag when the dialog is canceled
+                    })
                     .show();
         });
     }
 
-    // Inside the BackgroundGeolocationPlugin or wherever you're calling this method
+
+    private boolean isDialogShown = false; // Flag to check if dialog is already shown
+
     private void showBatteryExplanationDialog() {
         // Ensure this is executed on the main thread
         cordova.getActivity().runOnUiThread(() -> {
+            // Only show the dialog if it isn't already shown
+            if (isDialogShown) {
+                return; // Skip if the dialog is already displayed
+            }
+
             String language = Locale.getDefault().getLanguage();
             boolean isHungarian = "hu".equals(language);
 
@@ -216,14 +238,23 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
             String positiveButton = isHungarian ? "Ugrás a beállításokhoz" : "Go to Settings";
             String negativeButton = isHungarian ? "Mégsem" : "Cancel";
 
+            // Set the flag before showing the dialog
+            isDialogShown = true;
+
             new AlertDialog.Builder(cordova.getActivity())
                     .setTitle(title)
                     .setMessage(message)
-                    .setPositiveButton(positiveButton, (dialog, which) -> openBatterySettings())
-                    .setNegativeButton(negativeButton, null)
+                    .setPositiveButton(positiveButton, (dialog, which) -> {
+                        openBatterySettings();
+                        isDialogShown = false; // Reset the flag after closing the dialog
+                    })
+                    .setNegativeButton(negativeButton, (dialog, which) -> {
+                        isDialogShown = false; // Reset the flag when the dialog is canceled
+                    })
                     .show();
         });
     }
+
 
     public boolean execute(String action, final JSONArray data, final CallbackContext callbackContext) {
         Context context = getContext();
@@ -271,13 +302,14 @@ public class BackgroundGeolocationPlugin extends CordovaPlugin implements Plugin
                             if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION)
                                     != PackageManager.PERMISSION_GRANTED) {
                                 showLocationExplanationDialog();
-                            }
-                        }
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            String packageName = context.getPackageName();
-                            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-                            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                                showBatteryExplanationDialog();
+                            } else {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    String packageName = context.getPackageName();
+                                    PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                                    if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                                        showBatteryExplanationDialog();
+                                    }
+                                }
                             }
                         }
 
